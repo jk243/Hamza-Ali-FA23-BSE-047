@@ -1,5 +1,5 @@
 const User = require("../models/User");
-const AuditLog = require("../models/AuditLog");
+const AuditLog = require("../models/Auditlog");
 const crypto = require("crypto");
 const bcrypt = require("bcryptjs");
 const { sendReminderEmail } = require("../services/emailService");
