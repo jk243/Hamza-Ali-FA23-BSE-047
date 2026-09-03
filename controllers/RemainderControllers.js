@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
 const Reminder = require("../models/Remainder");
 const Task = require("../models/Task");
-const { ensureAutoRemindersAfterUserReminder } = require("../services/remainderservice");
+const { ensureAutoRemindersAfterUserReminder } = require("../services/remainderService");
 
 // ==============================
 // Create Reminder
