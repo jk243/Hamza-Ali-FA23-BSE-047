@@ -23,7 +23,7 @@
     "csv-parse": "^7.0.1",
     "csv-stringify": "^6.8.1",
     "dotenv": "^17.4.2",
-    "exceljs": "^4.4.0",
+    "exceljs": "^3.4.0",
     "express": "^5.2.1",
     "handlebars": "^4.7.9",
     "jsonwebtoken": "^9.0.3",

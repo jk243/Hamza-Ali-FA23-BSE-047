@@ -15,7 +15,7 @@ const {
   uploadLogoMiddleware,
   uploadBackupMiddleware,
   uploadImportMiddleware,
-} = require("../controllers/SystemSettingsController");
+} = require("../controllers/systemSettingsController");
 
 // Specific routes MUST come before the generic "/:section" route below.
 router.get("/", getSettings);
