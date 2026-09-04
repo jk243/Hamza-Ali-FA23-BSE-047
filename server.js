@@ -17,6 +17,7 @@ const server = http.createServer(app);
 // =====================================================
 
 
+
 // =====================================================
 // CORS CONFIGURATION
 // =====================================================
@@ -29,23 +30,23 @@ const allowedOrigins = [
   "https://remainder-frontend.vercel.app",
 ];
 
-const corsOptions = {
+// 1. Create robust CORS middleware
+const corsMiddleware = cors({
   origin: (origin, callback) => {
+    // If no origin (e.g. Server-to-Server, Postman, Mobile) or origin is allowed
     if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error("Not allowed by CORS"));
+      return callback(null, true);
     }
+    return callback(null, false); // Return false instead of throwing an Error
   },
   credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
-  optionsSuccessStatus: 200 // Use 200 instead of 204 for legacy proxy compatibility
-};
+  optionsSuccessStatus: 200,
+});
 
-// Apply CORS globally AND handle preflight OPTIONS explicitly
-app.use(cors(corsOptions));
-app.options("*", cors(corsOptions));
+// 2. MUST BE APPLIED BEFORE ANY ROUTES OR MIDDLEWARE
+app.use(corsMiddleware);
 
 // =====================================================
 // BODY PARSER
