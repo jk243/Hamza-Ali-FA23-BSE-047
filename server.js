@@ -1,28 +1,80 @@
-const path = require('path');
-const express = require('express');
-const dotenv = require('dotenv');
-const { connectDB } = require('./config/db');
+const path = require("path");
+const express = require("express");
+const dotenv = require("dotenv");
 const cors = require("cors");
 const http = require("http");
 const { Server } = require("socket.io");
 const mongoose = require("mongoose");
 
+const { connectDB } = require("./config/db");
+
 dotenv.config();
 
-// for aws s3 buckets
-//______________________________________________
-require("dotenv").config();
-
-//___________________________________
 const app = express();
 const server = http.createServer(app);
 
-// ====================== Socket.io ======================
+// =====================================================
+// CORS CONFIGURATION
+// =====================================================
+
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:3000",
+  "http://localhost:4173",
+  "https://remainder-frontend.vercel.app",
+];
+
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      // Allow requests that do not contain an Origin
+      // e.g. Postman, server-to-server requests
+      if (!origin) {
+        return callback(null, true);
+      }
+
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      console.log("❌ CORS blocked origin:", origin);
+      return callback(new Error("Not allowed by CORS"));
+    },
+
+    credentials: true,
+
+    methods: [
+      "GET",
+      "POST",
+      "PUT",
+      "PATCH",
+      "DELETE",
+      "OPTIONS",
+    ],
+
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+    ],
+  })
+);
+
+// Handle browser preflight requests
+app.options("*", cors());
+
+// =====================================================
+// BODY PARSER
+// =====================================================
+
+app.use(express.json());
+
+// =====================================================
+// SOCKET.IO
+// =====================================================
+
 const io = new Server(server, {
   cors: {
-    origin: ["http://localhost:5173", "http://localhost:3000", "http://localhost:4173",
-      "https://remainder-frontend.vercel.app"
-    ],
+    origin: allowedOrigins,
     methods: ["GET", "POST"],
     credentials: true,
   },
@@ -30,174 +82,312 @@ const io = new Server(server, {
 
 app.set("io", io);
 
-app.use(express.json());
-app.use(cors({
-  origin: [
-    "http://localhost:5173",
-    "http://localhost:3000",
-    "http://localhost:4173",
-    "https://remainder-frontend.vercel.app"
-  ],
-  credentials: true
-}));
-app.use(express.json());
-
-//__________________________________________
+// =====================================================
+// DATABASE CONNECTION
+// =====================================================
 
 connectDB();
 
-// ====================== Routes ======================
-const userRoutes = require('./routes/UserRoutes');
-const TaskRoutes = require('./routes/TaskRoutes');
-const RemainderRoutes = require('./routes/RemainderRoutes');
-const ProjectRoutes = require('./routes/ProjectRoutes');
-const NotificationRoutes = require('./routes/NotificationRoutes');
-const DashboardRoutes = require('./routes/DashboardRoutes');
+// =====================================================
+// ROUTES
+// =====================================================
+
+const userRoutes = require("./routes/UserRoutes");
+const TaskRoutes = require("./routes/TaskRoutes");
+const RemainderRoutes = require("./routes/RemainderRoutes");
+const ProjectRoutes = require("./routes/ProjectRoutes");
+const NotificationRoutes = require("./routes/NotificationRoutes");
+const DashboardRoutes = require("./routes/DashboardRoutes");
 const TaskProgressRoutes = require("./routes/TaskProgressRoutes");
 const EmpRoutes = require("./routes/EmpRoutes");
 const profileImageRoutes = require("./routes/profileImageRoutes");
 const searchRoutes = require("./routes/searchRoutes");
 const upload = require("./routes/upload");
 
-app.use('/api/users', userRoutes);
-app.use('/api/task', TaskRoutes);
-app.use('/api/notification', NotificationRoutes);
-app.use('/api/remainder', RemainderRoutes);
-app.use('/api/projects', ProjectRoutes);
-app.use('/api/dashboard', DashboardRoutes);
+// User routes
+app.use("/api/users", userRoutes);
+
+// Task routes
+app.use("/api/task", TaskRoutes);
+
+// Notification routes
+app.use("/api/notification", NotificationRoutes);
+
+// Reminder routes
+app.use("/api/remainder", RemainderRoutes);
+
+// Project routes
+app.use("/api/projects", ProjectRoutes);
+
+// Dashboard routes
+app.use("/api/dashboard", DashboardRoutes);
+
+// Task progress routes
 app.use("/api/task-p", TaskProgressRoutes);
+
+// Employee performance routes
 app.use("/api/performance", EmpRoutes);
 
-require('./jobs/remainderCron');
+// Upload routes
+app.use("/api/upload", upload);
 
-
-// baaki imports ke baad
-app.use("/api/upload",upload);
-
-
+// Profile image routes
 app.use("/api/profile-image", profileImageRoutes);
+
+// Search routes
 app.use("/api/search", searchRoutes);
 
-app.use("/images", express.static(path.join(__dirname, "public/images/user")));
-app.use("/api/settings", require("./routes/systemSettingsRoutes"));
+// Images
+app.use(
+  "/images",
+  express.static(path.join(__dirname, "public/images/user"))
+);
 
-app.get('/', (req, res) => {
+// System settings
+app.use(
+  "/api/settings",
+  require("./routes/systemSettingsRoutes")
+);
+
+// =====================================================
+// REMINDER CRON
+// =====================================================
+
+require("./jobs/remainderCron");
+
+// =====================================================
+// ROOT ROUTE
+// =====================================================
+
+app.get("/", (req, res) => {
   res.send("Server Running");
 });
 
-// ====================== Change Streams ======================
+// =====================================================
+// CHANGE STREAMS
+// =====================================================
+
 const setupChangeStreams = () => {
   try {
-    // ========== USERS (Profile, Avatar, Access sab) ==========
-    const userStream = mongoose.connection.collection("users").watch([], {
-      fullDocument: "updateLookup",
-    });
+    // =================================================
+    // USERS
+    // =================================================
+
+    const userStream = mongoose.connection
+      .collection("users")
+      .watch([], {
+        fullDocument: "updateLookup",
+      });
 
     userStream.on("change", (change) => {
-      console.log("👤 User Change →", change.operationType);
+      console.log(
+        "👤 User Change →",
+        change.operationType
+      );
 
-      const { operationType, fullDocument, documentKey } = change;
+      const {
+        operationType,
+        fullDocument,
+        documentKey,
+      } = change;
 
       if (operationType === "insert") {
         io.emit("user:created", fullDocument);
       }
-      if (operationType === "update" || operationType === "replace") {
+
+      if (
+        operationType === "update" ||
+        operationType === "replace"
+      ) {
         io.emit("user:updated", fullDocument);
       }
+
       if (operationType === "delete") {
-        io.emit("user:deleted", { userId: documentKey._id.toString() });
+        io.emit("user:deleted", {
+          userId: documentKey._id.toString(),
+        });
       }
     });
 
-    userStream.on("error", (err) => console.error("User Stream Error:", err));
+    userStream.on("error", (err) => {
+      console.error(
+        "User Stream Error:",
+        err
+      );
+    });
 
-    // ========== TASKS ==========
+    // =================================================
+    // TASKS
+    // =================================================
+
     const Task = mongoose.model("Task");
-    const taskStream = Task.watch([], { fullDocument: "updateLookup" });
+
+    const taskStream = Task.watch([], {
+      fullDocument: "updateLookup",
+    });
 
     taskStream.on("change", (change) => {
-      console.log("📌 Task Change →", change.operationType);
+      console.log(
+        "📌 Task Change →",
+        change.operationType
+      );
 
       io.emit("notification", {
         type: "task",
         operation: change.operationType,
-        data: change.fullDocument || { _id: change.documentKey?._id },
+        data:
+          change.fullDocument || {
+            _id: change.documentKey?._id,
+          },
         timestamp: new Date(),
       });
 
-      // Extra clear events
       if (change.operationType === "insert") {
-        io.emit("task:created", change.fullDocument);
+        io.emit(
+          "task:created",
+          change.fullDocument
+        );
       }
-      if (change.operationType === "update" || change.operationType === "replace") {
-        io.emit("task:updated", change.fullDocument);
+
+      if (
+        change.operationType === "update" ||
+        change.operationType === "replace"
+      ) {
+        io.emit(
+          "task:updated",
+          change.fullDocument
+        );
       }
+
       if (change.operationType === "delete") {
-        io.emit("task:deleted", { taskId: change.documentKey._id.toString() });
+        io.emit("task:deleted", {
+          taskId:
+            change.documentKey._id.toString(),
+        });
       }
     });
 
-    taskStream.on("error", (err) => console.error("Task Stream Error:", err));
+    taskStream.on("error", (err) => {
+      console.error(
+        "Task Stream Error:",
+        err
+      );
+    });
 
-    // ========== REMINDERS ==========
+    // =================================================
+    // REMINDERS
+    // =================================================
+
     const Reminder = mongoose.model("Reminder");
-    const reminderStream = Reminder.watch([], { fullDocument: "updateLookup" });
+
+    const reminderStream = Reminder.watch([], {
+      fullDocument: "updateLookup",
+    });
 
     reminderStream.on("change", (change) => {
-      console.log("🔔 Reminder Change →", change.operationType);
+      console.log(
+        "🔔 Reminder Change →",
+        change.operationType
+      );
 
       io.emit("notification", {
         type: "reminder",
         operation: change.operationType,
-        data: change.fullDocument || { _id: change.documentKey?._id },
+        data:
+          change.fullDocument || {
+            _id: change.documentKey?._id,
+          },
         timestamp: new Date(),
       });
 
-      // Extra clear events
       if (change.operationType === "insert") {
-        io.emit("reminder:created", change.fullDocument);
+        io.emit(
+          "reminder:created",
+          change.fullDocument
+        );
       }
-      if (change.operationType === "update" || change.operationType === "replace") {
-        io.emit("reminder:updated", change.fullDocument);
+
+      if (
+        change.operationType === "update" ||
+        change.operationType === "replace"
+      ) {
+        io.emit(
+          "reminder:updated",
+          change.fullDocument
+        );
       }
+
       if (change.operationType === "delete") {
-        io.emit("reminder:deleted", { reminderId: change.documentKey._id.toString() });
+        io.emit("reminder:deleted", {
+          reminderId:
+            change.documentKey._id.toString(),
+        });
       }
     });
 
-    reminderStream.on("error", (err) => console.error("Reminder Stream Error:", err));
+    reminderStream.on("error", (err) => {
+      console.error(
+        "Reminder Stream Error:",
+        err
+      );
+    });
 
-    console.log("✅ Change Streams started successfully (Users + Tasks + Reminders)");
+    console.log(
+      "✅ Change Streams started successfully (Users + Tasks + Reminders)"
+    );
   } catch (error) {
-    console.error("❌ Change Stream Error:", error.message);
+    console.error(
+      "❌ Change Stream Error:",
+      error.message
+    );
   }
 };
 
-// DB connect hone ke baad streams start karo
+// =====================================================
+// START CHANGE STREAMS AFTER DATABASE CONNECTION
+// =====================================================
+
 mongoose.connection.once("open", () => {
   console.log("✅ MongoDB Connected");
   setupChangeStreams();
 });
 
-// ====================== Socket Connection ======================
+// =====================================================
+// SOCKET CONNECTION
+// =====================================================
+
 io.on("connection", (socket) => {
-  console.log("🟢 User connected:", socket.id);
+  console.log(
+    "🟢 User connected:",
+    socket.id
+  );
 
   socket.on("join", (userId) => {
     if (userId) {
       socket.join(userId.toString());
-      console.log(`User joined room → ${userId}`);
+
+      console.log(
+        `User joined room → ${userId}`
+      );
     }
   });
 
   socket.on("disconnect", () => {
-    console.log("🔴 User disconnected:", socket.id);
+    console.log(
+      "🔴 User disconnected:",
+      socket.id
+    );
   });
 });
 
-// ====================== Start Server ======================
+// =====================================================
+// START SERVER
+// =====================================================
+
 const PORT = process.env.PORT || 5000;
 
 server.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
+  console.log(
+    `🚀 Server running on port ${PORT}`
+  );
 });
