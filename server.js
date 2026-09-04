@@ -27,8 +27,8 @@ const allowedOrigins = [
 app.use(
   cors({
     origin: function (origin, callback) {
-      // Allow requests that do not contain an Origin
-      // e.g. Postman, server-to-server requests
+      // Allow requests without Origin
+      // Example: Postman / server-to-server requests
       if (!origin) {
         return callback(null, true);
       }
@@ -59,9 +59,6 @@ app.use(
   })
 );
 
-// Handle browser preflight requests
-app.options("*", cors());
-
 // =====================================================
 // BODY PARSER
 // =====================================================
@@ -83,7 +80,7 @@ const io = new Server(server, {
 app.set("io", io);
 
 // =====================================================
-// DATABASE CONNECTION
+// DATABASE
 // =====================================================
 
 connectDB();
@@ -104,46 +101,35 @@ const profileImageRoutes = require("./routes/profileImageRoutes");
 const searchRoutes = require("./routes/searchRoutes");
 const upload = require("./routes/upload");
 
-// User routes
 app.use("/api/users", userRoutes);
 
-// Task routes
 app.use("/api/task", TaskRoutes);
 
-// Notification routes
 app.use("/api/notification", NotificationRoutes);
 
-// Reminder routes
 app.use("/api/remainder", RemainderRoutes);
 
-// Project routes
 app.use("/api/projects", ProjectRoutes);
 
-// Dashboard routes
 app.use("/api/dashboard", DashboardRoutes);
 
-// Task progress routes
 app.use("/api/task-p", TaskProgressRoutes);
 
-// Employee performance routes
 app.use("/api/performance", EmpRoutes);
 
-// Upload routes
 app.use("/api/upload", upload);
 
-// Profile image routes
 app.use("/api/profile-image", profileImageRoutes);
 
-// Search routes
 app.use("/api/search", searchRoutes);
 
-// Images
 app.use(
   "/images",
-  express.static(path.join(__dirname, "public/images/user"))
+  express.static(
+    path.join(__dirname, "public/images/user")
+  )
 );
 
-// System settings
 app.use(
   "/api/settings",
   require("./routes/systemSettingsRoutes")
@@ -160,7 +146,7 @@ require("./jobs/remainderCron");
 // =====================================================
 
 app.get("/", (req, res) => {
-  res.send("Server Running");
+  res.status(200).send("Server Running");
 });
 
 // =====================================================
@@ -211,7 +197,7 @@ const setupChangeStreams = () => {
 
     userStream.on("error", (err) => {
       console.error(
-        "User Stream Error:",
+        "❌ User Stream Error:",
         err
       );
     });
@@ -262,14 +248,14 @@ const setupChangeStreams = () => {
       if (change.operationType === "delete") {
         io.emit("task:deleted", {
           taskId:
-            change.documentKey._id.toString(),
+            change.documentKey?._id?.toString(),
         });
       }
     });
 
     taskStream.on("error", (err) => {
       console.error(
-        "Task Stream Error:",
+        "❌ Task Stream Error:",
         err
       );
     });
@@ -320,14 +306,14 @@ const setupChangeStreams = () => {
       if (change.operationType === "delete") {
         io.emit("reminder:deleted", {
           reminderId:
-            change.documentKey._id.toString(),
+            change.documentKey?._id?.toString(),
         });
       }
     });
 
     reminderStream.on("error", (err) => {
       console.error(
-        "Reminder Stream Error:",
+        "❌ Reminder Stream Error:",
         err
       );
     });
@@ -344,7 +330,7 @@ const setupChangeStreams = () => {
 };
 
 // =====================================================
-// START CHANGE STREAMS AFTER DATABASE CONNECTION
+// DATABASE OPEN → START CHANGE STREAMS
 // =====================================================
 
 mongoose.connection.once("open", () => {
@@ -377,6 +363,26 @@ io.on("connection", (socket) => {
       "🔴 User disconnected:",
       socket.id
     );
+  });
+});
+
+// =====================================================
+// ERROR HANDLER
+// =====================================================
+
+app.use((err, req, res, next) => {
+  console.error("❌ Server Error:", err.message);
+
+  if (err.message === "Not allowed by CORS") {
+    return res.status(403).json({
+      success: false,
+      message: "CORS Error: Origin not allowed",
+    });
+  }
+
+  res.status(500).json({
+    success: false,
+    message: "Internal Server Error",
   });
 });
 
