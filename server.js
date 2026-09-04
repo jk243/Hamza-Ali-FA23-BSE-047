@@ -16,13 +16,6 @@ const server = http.createServer(app);
 // ALLOWED FRONTEND ORIGINS
 // =====================================================
 
-
-
-// =====================================================
-// CORS CONFIGURATION
-// =====================================================
-
-
 const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:3000",
@@ -30,14 +23,24 @@ const allowedOrigins = [
   "https://remainder-frontend.vercel.app",
 ];
 
+// =====================================================
+// CORS CONFIGURATION
+// =====================================================
+
 // 1. Create robust CORS middleware
 const corsMiddleware = cors({
   origin: (origin, callback) => {
+    // Normalize by stripping a trailing slash, since browsers never send one
+    // but it's an easy typo to introduce when copy-pasting a deployed URL.
+    const cleanOrigin = origin ? origin.replace(/\/$/, "") : origin;
+
     // If no origin (e.g. Server-to-Server, Postman, Mobile) or origin is allowed
-    if (!origin || allowedOrigins.includes(origin)) {
+    if (!cleanOrigin || allowedOrigins.includes(cleanOrigin)) {
       return callback(null, true);
+    } else {
+      console.log("❌ CORS Blocked:", origin);
+      return callback(null, false); // Return false instead of throwing an Error
     }
-    return callback(null, false); // Return false instead of throwing an Error
   },
   credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
@@ -46,7 +49,15 @@ const corsMiddleware = cors({
 });
 
 // 2. MUST BE APPLIED BEFORE ANY ROUTES OR MIDDLEWARE
+// (nothing — no logger, no rate limiter, no auth check — should run before this)
 app.use(corsMiddleware);
+
+// 3. Explicitly handle preflight (OPTIONS) requests for every route.
+//    Some Express 5 / cors combinations don't reliably auto-register this,
+//    and a missed preflight response is what the browser reports as a
+//    generic "CORS policy" / Network Error, even though the real cause is
+//    a missing OPTIONS handler or a crashed/sleeping server.
+app.options("*", corsMiddleware);
 
 // =====================================================
 // BODY PARSER
