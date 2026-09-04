@@ -20,7 +20,9 @@ const server = http.createServer(app);
 // ====================== Socket.io ======================
 const io = new Server(server, {
   cors: {
-    origin: ["http://localhost:5173", "http://localhost:3000", "http://localhost:4173"],
+    origin: ["http://localhost:5173", "http://localhost:3000", "http://localhost:4173",
+      "https://remainder-frontend.vercel.app"
+    ],
     methods: ["GET", "POST"],
     credentials: true,
   },
@@ -29,7 +31,15 @@ const io = new Server(server, {
 app.set("io", io);
 
 app.use(express.json());
-app.use(cors());
+app.use(cors({
+  origin: [
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "http://localhost:4173",
+    "https://remainder-frontend.vercel.app"
+  ],
+  credentials: true
+}));
 app.use(express.json());
 
 //__________________________________________
