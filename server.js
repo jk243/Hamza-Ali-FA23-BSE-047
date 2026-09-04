@@ -1,7 +1,6 @@
 const path = require("path");
 const express = require("express");
 const dotenv = require("dotenv");
-const cors = require("cors");
 const http = require("http");
 const { Server } = require("socket.io");
 const mongoose = require("mongoose");
@@ -14,7 +13,7 @@ const app = express();
 const server = http.createServer(app);
 
 // =====================================================
-// CORS CONFIGURATION
+// ALLOWED FRONTEND ORIGINS
 // =====================================================
 
 const allowedOrigins = [
@@ -24,40 +23,33 @@ const allowedOrigins = [
   "https://remainder-frontend.vercel.app",
 ];
 
-app.use(
-  cors({
-    origin: function (origin, callback) {
-      // Allow requests without Origin
-      // Example: Postman / server-to-server requests
-      if (!origin) {
-        return callback(null, true);
-      }
+// =====================================================
+// CORS CONFIGURATION
+// =====================================================
 
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
 
-      console.log("❌ CORS blocked origin:", origin);
-      return callback(new Error("Not allowed by CORS"));
-    },
+  if (origin && allowedOrigins.includes(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Access-Control-Allow-Credentials", "true");
+    res.setHeader(
+      "Access-Control-Allow-Methods",
+      "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+    );
+    res.setHeader(
+      "Access-Control-Allow-Headers",
+      "Content-Type, Authorization"
+    );
+  }
 
-    credentials: true,
+  // Handle browser preflight request
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(204);
+  }
 
-    methods: [
-      "GET",
-      "POST",
-      "PUT",
-      "PATCH",
-      "DELETE",
-      "OPTIONS",
-    ],
-
-    allowedHeaders: [
-      "Content-Type",
-      "Authorization",
-    ],
-  })
-);
+  next();
+});
 
 // =====================================================
 // BODY PARSER
@@ -80,7 +72,7 @@ const io = new Server(server, {
 app.set("io", io);
 
 // =====================================================
-// DATABASE
+// DATABASE CONNECTION
 // =====================================================
 
 connectDB();
@@ -101,28 +93,40 @@ const profileImageRoutes = require("./routes/profileImageRoutes");
 const searchRoutes = require("./routes/searchRoutes");
 const upload = require("./routes/upload");
 
+// Users
 app.use("/api/users", userRoutes);
 
+// Tasks
 app.use("/api/task", TaskRoutes);
 
+// Notifications
 app.use("/api/notification", NotificationRoutes);
 
+// Reminders
 app.use("/api/remainder", RemainderRoutes);
 
+// Projects
 app.use("/api/projects", ProjectRoutes);
 
+// Dashboard
 app.use("/api/dashboard", DashboardRoutes);
 
+// Task Progress
 app.use("/api/task-p", TaskProgressRoutes);
 
+// Employee Performance
 app.use("/api/performance", EmpRoutes);
 
+// Upload
 app.use("/api/upload", upload);
 
+// Profile Images
 app.use("/api/profile-image", profileImageRoutes);
 
+// Search
 app.use("/api/search", searchRoutes);
 
+// User Images
 app.use(
   "/images",
   express.static(
@@ -130,6 +134,7 @@ app.use(
   )
 );
 
+// System Settings
 app.use(
   "/api/settings",
   require("./routes/systemSettingsRoutes")
@@ -156,7 +161,7 @@ app.get("/", (req, res) => {
 const setupChangeStreams = () => {
   try {
     // =================================================
-    // USERS
+    // USERS CHANGE STREAM
     // =================================================
 
     const userStream = mongoose.connection
@@ -190,7 +195,7 @@ const setupChangeStreams = () => {
 
       if (operationType === "delete") {
         io.emit("user:deleted", {
-          userId: documentKey._id.toString(),
+          userId: documentKey?._id?.toString(),
         });
       }
     });
@@ -203,7 +208,7 @@ const setupChangeStreams = () => {
     });
 
     // =================================================
-    // TASKS
+    // TASK CHANGE STREAM
     // =================================================
 
     const Task = mongoose.model("Task");
@@ -261,7 +266,7 @@ const setupChangeStreams = () => {
     });
 
     // =================================================
-    // REMINDERS
+    // REMINDER CHANGE STREAM
     // =================================================
 
     const Reminder = mongoose.model("Reminder");
@@ -319,7 +324,7 @@ const setupChangeStreams = () => {
     });
 
     console.log(
-      "✅ Change Streams started successfully (Users + Tasks + Reminders)"
+      "✅ Change Streams started successfully"
     );
   } catch (error) {
     console.error(
@@ -330,11 +335,12 @@ const setupChangeStreams = () => {
 };
 
 // =====================================================
-// DATABASE OPEN → START CHANGE STREAMS
+// START CHANGE STREAMS AFTER MONGODB CONNECTION
 // =====================================================
 
 mongoose.connection.once("open", () => {
   console.log("✅ MongoDB Connected");
+
   setupChangeStreams();
 });
 
@@ -367,18 +373,14 @@ io.on("connection", (socket) => {
 });
 
 // =====================================================
-// ERROR HANDLER
+// GLOBAL ERROR HANDLER
 // =====================================================
 
 app.use((err, req, res, next) => {
-  console.error("❌ Server Error:", err.message);
-
-  if (err.message === "Not allowed by CORS") {
-    return res.status(403).json({
-      success: false,
-      message: "CORS Error: Origin not allowed",
-    });
-  }
+  console.error(
+    "❌ Server Error:",
+    err.message
+  );
 
   res.status(500).json({
     success: false,
