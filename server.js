@@ -16,18 +16,11 @@ const server = http.createServer(app);
 // ALLOWED FRONTEND ORIGINS
 // =====================================================
 
-const allowedOrigins = [
-  "http://localhost:5173",
-  "http://localhost:3000",
-  "http://localhost:4173",
-  "https://remainder-frontend.vercel.app",
-];
 
 // =====================================================
 // CORS CONFIGURATION
 // =====================================================
 
-const cors = require("cors");
 
 const allowedOrigins = [
   "http://localhost:5173",
