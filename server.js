@@ -27,9 +27,17 @@ const allowedOrigins = [
 // CORS CONFIGURATION
 // =====================================================
 
+const cors = require("cors");
+
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:3000",
+  "http://localhost:4173",
+  "https://remainder-frontend.vercel.app",
+];
+
 const corsOptions = {
-  origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps, curl, or Postman)
+  origin: (origin, callback) => {
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
@@ -39,10 +47,12 @@ const corsOptions = {
   credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
-  optionsSuccessStatus: 204,
+  optionsSuccessStatus: 200 // Use 200 instead of 204 for legacy proxy compatibility
 };
 
+// Apply CORS globally AND handle preflight OPTIONS explicitly
 app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));
 
 // =====================================================
 // BODY PARSER
